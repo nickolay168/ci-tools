@@ -183,7 +183,9 @@ def check_toxcore_version(failures: list[str]) -> None:
         latest_toxcore_version = github.api("/repos/TokTok/c-toxcore/releases/latest")[
             "tag_name"
         ]
-        if f"v{toxcore_version}" == latest_toxcore_version:
+        if not git.parse_version(f"v{toxcore_version}") < git.parse_version(
+            latest_toxcore_version
+        ):
             check.ok(f"The toxcore version is up-to-date: {toxcore_version}")
         else:
             check.fail(
