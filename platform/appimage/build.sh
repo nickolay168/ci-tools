@@ -79,7 +79,7 @@ readonly BUILD_DIR="$(realpath .)"
 readonly PROJECT_APP_DIR="$BUILD_DIR/$PROJECT_NAME.AppDir"
 
 # Pin appimagetool version for reproducibility
-readonly APPIMAGE_TOOL_VERSION="940"
+readonly APPIMAGE_TOOL_VERSION="947"
 readonly APPIMAGE_TOOL_URL="https://github.com/probonopd/go-appimage/releases/download/continuous/appimagetool-$APPIMAGE_TOOL_VERSION-x86_64.AppImage"
 
 rm -f appimagetool-*.AppImage
