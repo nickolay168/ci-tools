@@ -8,6 +8,8 @@ on: [workflow_call]
 jobs:
   check-release:
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
 
     steps:
       - name: Install python dependencies
@@ -20,6 +22,7 @@ jobs:
         with:
           repository: TokTok/ci-tools
           path: ci-tools
+          allow-unsafe-pr-checkout: true
 
       - name: Check version against GitHub releases
         env:
