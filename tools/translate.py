@@ -6,6 +6,7 @@ import json
 import multiprocessing
 import subprocess  # nosec
 import textwrap
+import time
 import xml.dom.minidom as minidom  # nosec
 from dataclasses import dataclass
 from functools import cache as memoize
@@ -189,8 +190,9 @@ def _baidu_call_translate(lang: Language, text: str) -> str:
     E.g. it says that "vimcu lo citri" means "I will eat the lemon" when it
     actually means "remove the history".
     """
-    response = requests.post(
-        "https://fanyi.baidu.com/ait/text/translate",
+    response = _request_with_retry(
+        method="POST",
+        url="https://fanyi.baidu.com/ait/text/translate",
         json={
             "domain": "common",
             "from": "en",
@@ -200,7 +202,7 @@ def _baidu_call_translate(lang: Language, text: str) -> str:
         },
     )
     response.raise_for_status()
-    events = (
+    events = list(
         json.loads(line.removeprefix("data: "))
         for line in response.text.split("\n")
         if line.startswith("data: ")
@@ -213,7 +215,35 @@ def _baidu_call_translate(lang: Language, text: str) -> str:
         and event["data"]["list"]
         for para in event["data"]["list"]
     )
-    return "\n".join(translations)
+    translations_as_string = "\n".join(translations)
+    if not translations_as_string:
+        errors = list(filter(lambda x: bool(x.get("errmsg")), events))
+        if errors:
+            raise ValueError(
+                f'Failed to translate "{text}" to "{lang.baidu_code}" using Baidu. '
+                f'Response: Error number: {errors[0].get("errno")}; Error message: {errors[0].get("errmsg")}.'
+            )
+    return translations_as_string
+
+
+def _request_with_retry(
+    method: str,
+    url: str,
+    params: dict[str, str] | None = None,
+    json: dict[str, str] | None = None,
+    retries: int = 3,
+) -> requests.Response:
+    response = requests.request(method, url, params=params, json=json)
+    sleep_time = 0.5
+    for _ in range(retries):
+        # Handle the service throttling.
+        if response.status_code == 429:
+            time.sleep(sleep_time)
+            sleep_time += 0.5
+            response = requests.request(method, url, params=params, json=json)
+        else:
+            break
+    return response
 
 
 def _validate_translation(source: str, translation: str) -> bool:
@@ -284,8 +314,9 @@ def _translate(lang: Language, current: int, total: int, text: str) -> str:
         return ""
     if lang.weblate_code in _BAIDU_LANGUAGES:
         return _fix_translation(lang, text, _baidu_translate(lang, text))
-    response = requests.get(
-        "https://translate.googleapis.com/translate_a/single",
+    response = _request_with_retry(
+        method="GET",
+        url="https://translate.googleapis.com/translate_a/single",
         params={
             "client": "gtx",
             "sl": "en",
